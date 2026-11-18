@@ -53,7 +53,7 @@ dependencies = [
     # commit of hybrowlabs/OpenOutFind (branch ops-636-lead-ocean-dataset); bump it when that
     # repo changes, as upstream bumps its PyPI pin. Upstream behaviour is still one variable
     # away: OPENOUTFIND_DISCOVERY_PROVIDER=bettercontact.
-    "openoutfind @ git+https://github.com/hybrowlabs/OpenOutFind@7e357b2b834c65e1f3ee80e9966e38263a2d1d1c",
+    "openoutfind @ git+https://github.com/hybrowlabs/OpenOutFind@601d0a5f5e07b67ccd9f6cd55dfea2bbb1625d5b",
     "openoutsend==0.1.83",
     # The wizard validates a country code against a real list of them. Declared rather
     # than inherited from the finder: the rule above is that this file names what *this*
