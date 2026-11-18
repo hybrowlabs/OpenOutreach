@@ -47,7 +47,7 @@ round, and a missing file or column stops the run with `bad_config` naming it.
     openoutreach run 10                   # same, with onboarding; nothing is sent
     openoutreach status                   # what is configured, blocked and counted
 
-`find N emails` resolves work emails through BetterContact and needs its key; it still sends nothing.
+**Do not use the `emails` unit in the pilot** unless Growth accepts the cost: `find N emails` sends each lead's LinkedIn URL (Lead Ocean and dataset people alike) to BetterContact to resolve a work email. It needs BetterContact's key, spends credits, and still sends no email.
 
 ## 5. Sending (not for the pilot)
 
