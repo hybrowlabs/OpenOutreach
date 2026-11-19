@@ -21,12 +21,21 @@ Put these in the environment (or a unit file). Do not commit them.
 | `OPENOUTFIND_LLM_API_KEY` | yes | key for that model |
 | `OPENOUTFIND_PRODUCT_DOCS` / `OPENOUTFIND_CAMPAIGN_TARGET` | yes | what you sell, and to whom (or `openoutreach init --product-docs F --target F`) |
 | `OPENOUTFIND_DATASET_PATH` | one source | path to the dataset file (below) |
-| `OPENOUTFIND_LEADOCEAN_API_KEY` + `OPENOUTFIND_LEADOCEAN_BASE_URL` | one source | Lead Ocean key and API base URL |
-| `OPENOUTFIND_DISCOVERY_PROVIDER` | no | `leadocean+dataset` (default), `leadocean`, `dataset`, `bettercontact` |
+| `OPENOUTFIND_LEADOCEAN_API_KEY` + `OPENOUTFIND_LEADOCEAN_BASE_URL` | one source | Lead Ocean key (sent as `x-api-key`) and API base URL, e.g. `https://api.leadocean.io` |
+| `OPENOUTFIND_BETTERCONTACT_API_KEY` | one source | BetterContact key: Lead Finder discovery is free |
+| `OPENOUTFIND_DISCOVERY_PROVIDER` | no | sources joined with `+`: `dataset`, `leadocean`, `leadfinder`. Default `dataset+leadocean+leadfinder` |
 | `OPENOUTREACH_ALLOW_SEND` | no — **leave unset** | sending is off unless this is `1` |
 
-Either source is enough on its own. With both, the dataset is read first, then Lead Ocean.
-The upstream contacts hub is not used unless the provider is `bettercontact`.
+Any one source is enough on its own. With several, the dataset is read first, then Lead Ocean,
+then Lead Finder, as one stream: a later source supplies the pages the earlier ones cannot fill.
+
+**Lead Ocean costs records.** Each person a search page returns counts as one record against the
+account's monthly allowance. Counting is free. There is no spend cap in this fork, so size the
+search first (the walk does this itself before it buys a page) and keep the first pilot small.
+A search Lead Ocean cannot answer faithfully (a filter it would drop, a seniority or country it has
+no value for) buys nobody and is logged as a warning.
+
+The upstream contacts hub is not used unless `bettercontact` is the only source selected.
 
 ## 3. The dataset file
 

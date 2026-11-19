@@ -53,7 +53,10 @@ dependencies = [
     # commit of hybrowlabs/OpenOutFind (branch ops-636-lead-ocean-dataset); bump it when that
     # repo changes, as upstream bumps its PyPI pin. Upstream behaviour is still one variable
     # away: OPENOUTFIND_DISCOVERY_PROVIDER=bettercontact.
-    "openoutfind @ git+https://github.com/hybrowlabs/OpenOutFind@48e82c1fbcdffc57a00f5bc471d70140299ccb53",
+    "openoutfind @ git+https://github.com/hybrowlabs/OpenOutFind@9c32a317b18704a69f11bf826b502ab3c97958f2",
+    # agentic-fsm 0.1.16+ refuses openoutsend 0.1.83's Deal state machine ("edge 0 is ..."),
+    # so an unpinned install breaks the send path. 0.1.14 is the last that accepts it.
+    "agentic-fsm==0.1.14",
     "openoutsend==0.1.83",
     # The wizard validates a country code against a real list of them. Declared rather
     # than inherited from the finder: the rule above is that this file names what *this*

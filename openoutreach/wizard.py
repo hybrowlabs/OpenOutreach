@@ -203,6 +203,7 @@ def _ask_discovery(config: SiteConfig) -> None:
     _say(
         "\n  Where leads come from. Give a dataset file (CSV or JSON Lines), a Lead Ocean\n"
         "  key and its API base URL, or both — the dataset is read first, then Lead Ocean.\n"
+        "  BetterContact Lead Finder is a third source and is free: it needs only a BetterContact key.\n"
         "  Leave a question blank to skip that source."
     )
     while True:
@@ -211,29 +212,38 @@ def _ask_discovery(config: SiteConfig) -> None:
             _ask_secret("Lead Ocean API key") if _confirm("Use Lead Ocean too?") else "")
         if config.leadocean_api_key:
             config.leadocean_base_url = _ask("Lead Ocean API base URL")
+        config.bettercontact_api_key = (
+            _ask_secret("BetterContact API key") if _confirm("Use Lead Finder too?") else "")
         if _discovery_answered(config):
             return
         _say("  At least one source is needed.")
 
 
 def _discovery_answered(config: SiteConfig) -> bool:
-    """Whether a lead source is complete, from the row or the environment."""
+    """Whether a lead source is complete, from the row or the environment.
+
+    One source named means that one must be complete; several (or none, the default of
+    dataset + Lead Ocean + Lead Finder) means any one complete source is enough.
+    """
     def have(field: str) -> bool:
         if getattr(config, field):
             return True
         return bool(os.environ.get(FINDER_ENV[field], "").strip())
 
-    provider = (getattr(config, "discovery_provider", "")
-                or os.environ.get(FINDER_ENV["discovery_provider"], "")).strip().lower()
-    if provider == "bettercontact":
-        return have("bettercontact_api_key")
-    ocean = have("leadocean_api_key") and have("leadocean_base_url")
-    dataset = have("dataset_path")
-    if provider == "leadocean":
-        return ocean
-    if provider == "dataset":
-        return dataset
-    return ocean or dataset
+    raw = (getattr(config, "discovery_provider", "")
+           or os.environ.get(FINDER_ENV["discovery_provider"], "")).strip().lower()
+    aliases = {"leadfinder": "bettercontact", "lead_finder": "bettercontact"}
+    names = [aliases.get(part.strip(), part.strip()) for part in raw.split("+")] if raw else [
+        "dataset", "leadocean", "bettercontact"]
+    complete = {
+        "dataset": have("dataset_path"),
+        "leadocean": have("leadocean_api_key") and have("leadocean_base_url"),
+        "bettercontact": have("bettercontact_api_key"),
+    }
+    known = [name for name in names if name in complete]
+    if len(known) == 1:
+        return complete[known[0]]  # one source named: it has to be the complete one
+    return any(complete[name] for name in known)
 
 
 def _ask_operator(config: SiteConfig) -> None:
@@ -315,7 +325,7 @@ def _variables_for(fields, config: SiteConfig | None = None) -> list[str]:
     for field in fields:
         if field == "discovery":
             names += [FINDER_ENV["dataset_path"], FINDER_ENV["leadocean_api_key"],
-                      FINDER_ENV["leadocean_base_url"]]
+                      FINDER_ENV["leadocean_base_url"], FINDER_ENV["bettercontact_api_key"]]
             continue
         variable = FINDER_ENV.get(field) or SENDER_ENV.get(field)
         if variable:

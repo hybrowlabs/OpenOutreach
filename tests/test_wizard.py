@@ -131,9 +131,8 @@ class TestWhatItAsksFor:
         assert "OUTSEND_MAILBOX_ADDRESS" not in message
         assert "OUTSEND_OPERATOR_EMAIL" not in message
         for variable in ("OPENOUTFIND_DATASET_PATH", "OPENOUTFIND_LEADOCEAN_API_KEY",
-                         "OPENOUTFIND_LEADOCEAN_BASE_URL"):
+                         "OPENOUTFIND_LEADOCEAN_BASE_URL", "OPENOUTFIND_BETTERCONTACT_API_KEY"):
             assert variable in message
-        assert "BETTERCONTACT" not in message
 
     def test_a_find_only_install_is_ready_without_any_mailbox_answer(self, db, monkeypatch):
         config = SiteConfig.load()
@@ -181,6 +180,10 @@ class TestTheLeadSource:
         ({"discovery_provider": "dataset", "leadocean_api_key": "k",
           "leadocean_base_url": "https://x"}, False),  # a chosen source must itself be complete
         ({"discovery_provider": "bettercontact", "bettercontact_api_key": "bc"}, True),
+        ({"bettercontact_api_key": "bc"}, True),  # Lead Finder alone is a way in
+        ({"discovery_provider": "leadfinder"}, False),  # named, but no key
+        ({"discovery_provider": "dataset+leadfinder", "bettercontact_api_key": "bc"}, True),
+        ({"discovery_provider": "dataset+leadfinder"}, False),
     ])
     def test_a_source_counts_only_when_it_is_complete(self, db, fields, answered):
         config = SiteConfig.load()
