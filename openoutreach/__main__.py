@@ -46,15 +46,17 @@ import sys
 DEFAULT_GOAL = 5
 
 OVERVIEW = """\
-OpenOutreach — find B2B leads that fit, and email the ones that do.
+OpenOutreach (hybrowlabs fork) — find B2B leads that fit. It does not send email
+unless OPENOUTREACH_ALLOW_SEND=1.
 
-  openoutreach                  onboard if needed, then find and send
-  openoutreach run 5            ...with an explicit goal (≤5 email credits)
-  openoutreach init             onboard only — both halves, one flow
+  openoutreach                  onboard if needed, then find leads (nothing is sent)
+  openoutreach run 5            ...with an explicit goal
+  openoutreach run 5 --send     find, then email them (needs OPENOUTREACH_ALLOW_SEND=1)
+  openoutreach init             onboard only
 
   openoutreach find 10          ten more qualified leads → CSV on stdout
-  openoutreach find 10 emails   ...with a verified work email (1 credit each)
-  openoutreach send             mail what is already stored
+  openoutreach find 10 emails   ...with a verified work email (BetterContact, 1 credit each)
+  openoutreach send             mail what is already stored (needs OPENOUTREACH_ALLOW_SEND=1)
   openoutreach status           what is configured, blocked and counted
 
   openoutreach help <command>   details for one command
@@ -202,6 +204,13 @@ def _send(rest: list[str]) -> int:
     — so this is a call, not a `call_command`. Its own `_boot()` is safe here:
     `DJANGO_SETTINGS_MODULE` is set with `setdefault` and `django.setup()` is idempotent.
     """
+    from openoutreach import wizard
+
+    if not wizard.sending_allowed():
+        print(f"error: sending_disabled: this install does not send email. Set "
+              f"{wizard.ALLOW_SEND_ENV}=1 to switch sending on.", file=sys.stderr)
+        return 1
+
     from openoutsend.__main__ import main as outsend_main
 
     return outsend_main(["send", *rest])
@@ -220,10 +229,15 @@ def _run(rest: list[str]) -> int:
 
     from openoutfind.core.errors import OpenOutFindError
     from openoutreach import wizard
-    from openoutsend.leads.ingest import ingest
 
+    rest, send = _split_send_flag(rest)
     goal = _goal(rest)
     wizard.onboard()
+
+    if not (send and wizard.sending_allowed()):
+        return _find_only(goal, send)
+
+    from openoutsend.leads.ingest import ingest
 
     print(f"\nFinding {goal} lead(s) with a verified address — at most {goal} credits.",
           file=sys.stderr)
@@ -242,6 +256,38 @@ def _run(rest: list[str]) -> int:
     print(f"handed {result.stored} lead(s) to the sender", file=sys.stderr)
 
     return _send([])
+
+
+def _split_send_flag(rest: list[str]) -> tuple[list[str], bool]:
+    """Take `--send` out of `run`'s arguments; it is the explicit ask to email."""
+    return [arg for arg in rest if arg != "--send"], "--send" in rest
+
+
+def _find_only(goal: int, send_asked: bool) -> int:
+    """`run` without sending: find and qualify `goal` leads and print them as CSV.
+
+    This is the default, and it is the pilot mode: nothing is handed to the sender, no
+    mailbox is touched and no email can leave. It asks for leads, not addresses — the
+    `emails` unit buys addresses from BetterContact, which this fork's lead sources do not
+    need. Sending needs both `--send` and `OPENOUTREACH_ALLOW_SEND=1`.
+    """
+    from django.core.management import call_command
+
+    from openoutfind.core.errors import OpenOutFindError
+    from openoutreach import wizard
+
+    if send_asked:
+        print(f"--send was given but {wizard.ALLOW_SEND_ENV} is not set, so nothing will be "
+              f"sent. Finding leads only.", file=sys.stderr)
+    else:
+        print(f"\nFinding {goal} lead(s). Nothing is sent: add --send with "
+              f"{wizard.ALLOW_SEND_ENV}=1 to email them.", file=sys.stderr)
+    try:
+        call_command("find", str(goal))
+    except OpenOutFindError as exc:
+        print(f"the search stopped short: {exc}", file=sys.stderr)
+        return 1
+    return 0
 
 
 def _goal(rest: list[str]) -> int:

@@ -15,6 +15,25 @@
 - **No API backward compat**: no external users yet — rename, delete and rewrite freely; no shims or re-export modules.
 - **Migrations are almost entirely the children's.** This project owns the one migration graph *over* them and writes only its own config app's (`openoutreach/config/migrations/`). A model change in either child means bumping its pin here and re-running `migrate`.
 
+## Hybrowlabs fork (OPS-636)
+
+This copy is a modified fork (Apache-2.0; see `NOTICE`). Three differences from upstream, all of them
+on purpose:
+
+- **Discovery is Lead Ocean and/or a dataset file, not BetterContact Lead Finder.** The finder is
+  `hybrowlabs/OpenOutFind`, pinned in `pyproject.toml`; the provider is chosen by
+  `OPENOUTFIND_DISCOVERY_PROVIDER` (`bettercontact` restores upstream). The wizard's discovery question
+  is `_ask_discovery`, and `SiteConfig` carries `discovery_provider`, `leadocean_api_key`,
+  `leadocean_base_url`, `dataset_path`. The Lead Ocean client in the finder is an *assumed* contract.
+- **Sending is off.** `OPENOUTREACH_ALLOW_SEND` must be truthy (`wizard.sending_allowed`) before `send`
+  or `run --send` reach the sender. A bare `run` is find-only (`find N`, leads not addresses). While off,
+  onboarding asks for no mailbox/operator and `_check_children` skips the sender's check, which logs in
+  to the mailbox. The guard lives in this repo's verbs; `outsend` installed on its own is not guarded.
+- **No publishing from the fork:** `deploy.yml`'s PyPI and image jobs only run in `eracle/OpenOutreach`.
+
+`docs/pilot.md` is the Growth squad's how-to. Where the rules below say "bump the pin", the pin is the
+commit of the Hybrowlabs OpenOutFind, not a PyPI version.
+
 ## Project Overview
 
 **OpenOutreach is an orchestrator.** It installs `openoutfind` and `openoutsend`, hosts both

@@ -31,8 +31,37 @@ def test_a_bare_invocation_is_run(db, monkeypatch):
     assert asked == [[]]
 
 
+@pytest.fixture(autouse=True)
+def _sending_starts_off(monkeypatch):
+    """A developer's own switch must never decide what a test sees."""
+    monkeypatch.delenv("OPENOUTREACH_ALLOW_SEND", raising=False)
+
+
+def test_send_is_refused_by_default_and_the_sender_is_never_reached(monkeypatch, capsys):
+    """The fork's guard: with sending off, `send` stops before the sender is imported-and-run,
+    whatever it was asked."""
+    passed = []
+    monkeypatch.setattr("openoutsend.__main__.main", lambda argv: passed.append(argv) or 0)
+
+    assert cli._send(["5"]) == 1
+
+    assert passed == []
+    assert "sending_disabled" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("value", ["", "0", "no", "false"])
+def test_anything_short_of_an_explicit_yes_keeps_sending_off(monkeypatch, value):
+    monkeypatch.setenv("OPENOUTREACH_ALLOW_SEND", value)
+    passed = []
+    monkeypatch.setattr("openoutsend.__main__.main", lambda argv: passed.append(argv) or 0)
+
+    assert cli._send([]) == 1
+    assert passed == []
+
+
 def test_send_reaches_the_sender_with_its_own_arguments(monkeypatch):
     """The sender has no management commands, so this is a call and not a call_command."""
+    monkeypatch.setenv("OPENOUTREACH_ALLOW_SEND", "1")
     passed = []
     monkeypatch.setattr("openoutsend.__main__.main", lambda argv: passed.append(argv) or 0)
 
@@ -42,6 +71,7 @@ def test_send_reaches_the_sender_with_its_own_arguments(monkeypatch):
 
 def test_send_passes_a_sequence_through_untouched(monkeypatch):
     """`--sequence DIR` is the sender's; no setting of this host stands in for it."""
+    monkeypatch.setenv("OPENOUTREACH_ALLOW_SEND", "1")
     passed = []
     monkeypatch.setattr("openoutsend.__main__.main", lambda argv: passed.append(argv) or 0)
 

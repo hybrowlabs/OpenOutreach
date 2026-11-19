@@ -1,5 +1,10 @@
 ![OpenOutreach Logo](docs/logo.png)
 
+> **Hybrowlabs fork (OPS-636).** A modified copy of [eracle/OpenOutreach](https://github.com/eracle/OpenOutreach),
+> used under the Apache License 2.0 (see `LICENCE.md` and `NOTICE`). Lead discovery reads **Lead Ocean** and/or a
+> **dataset file** instead of BetterContact Lead Finder, and **it does not send email** unless
+> `OPENOUTREACH_ALLOW_SEND=1` is set. See [docs/pilot.md](docs/pilot.md).
+
 # OpenOutreach — open-source AI agent for B2B lead generation
 
 > **Describe your product. Define your target market. The AI finds the people who fit, tells you why each one does, and emails them.**

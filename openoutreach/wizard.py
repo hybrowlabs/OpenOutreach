@@ -31,19 +31,37 @@ from pathlib import Path
 
 from openoutreach.config.models import FINDER_ENV, SENDER_ENV, SiteConfig
 
-BETTERCONTACT_SIGNUP_URL = "https://bettercontact.rocks?fpr=openoutreach"
+#: Sending is **off** in this fork unless this variable is truthy (hybrowlabs, OPS-636).
+#: Finding and qualifying leads never mail anyone; only the sender does, and it is reached
+#: only through `send` and `run --send`, both of which check this first.
+ALLOW_SEND_ENV = "OPENOUTREACH_ALLOW_SEND"
+
+#: The fields that say where leads come from. Written back from the environment like every
+#: other answer, but asked as one block (`_ask_discovery`).
+DISCOVERY_FIELDS = ("discovery_provider", "leadocean_api_key", "leadocean_base_url",
+                    "dataset_path", "bettercontact_api_key")
 
 _INTRO = """
-  Welcome to OpenOutreach — it finds B2B leads that fit what you sell, writes down why
-  each one fits, and emails the ones you want it to.
+  Welcome to OpenOutreach (hybrowlabs fork) — it finds B2B leads that fit what you sell and
+  writes down why each one fits. It does not send email unless sending is switched on
+  (OPENOUTREACH_ALLOW_SEND=1).
 
-  Setup takes a few minutes and is asked once. Have three things ready:
-    • an LLM provider key — the agent judges your leads and writes the mail
-    • a BetterContact key — powers lead discovery (free) and email finding (paid)
-    • a mailbox and its app password — the address the mail comes from
+  Setup takes a few minutes and is asked once. Have these ready:
+    • an LLM provider key — the agent judges your leads
+    • a lead source — a dataset file, or a Lead Ocean key and its API base URL
 
-  You pay only those providers. Stop anytime; setup resumes where you left off.
+  Stop anytime; setup resumes where you left off.
 """
+
+_SENDING_INTRO = """
+  Sending is switched on, so you also need:
+    • a mailbox and its app password — the address the mail comes from
+"""
+
+
+def sending_allowed() -> bool:
+    """Whether this process may reach the sender at all. Off unless explicitly enabled."""
+    return os.environ.get(ALLOW_SEND_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def onboard(product_docs: str | None = None, target: str | None = None) -> None:
@@ -91,16 +109,18 @@ def _ask_what_is_missing(config: SiteConfig) -> None:
     children report one, as the variable that would supply it. That keeps one vocabulary
     across all three programs: whatever a person is asked here, an agent sets there.
     """
-    missing = [field for field in _REQUIRED if not _answered(config, field)]
+    missing = [field for field in _required() if not _answered(config, field)]
     if not missing:
         return
 
     if not sys.stdin.isatty():
         raise SystemExit(
             "error: onboarding_incomplete: nobody to ask, and this install has not been "
-            "told: " + ", ".join(_variables_for(missing)))
+            "told: " + ", ".join(_variables_for(missing, config)))
 
     _say(_INTRO)
+    if sending_allowed():
+        _say(_SENDING_INTRO)
     for field in missing:
         _ASK[field](config)
     config.newsletter = _newsletter_default(config)
@@ -115,7 +135,9 @@ def _write_back_from_environment(config: SiteConfig) -> None:
     same promise a typed answer gets — without touching `apply_to_environment`'s
     `setdefault`, which stays row → environment only.
     """
-    for field in _REQUIRED:
+    for field in (*_REQUIRED, *DISCOVERY_FIELDS):
+        if field not in FINDER_ENV and field not in SENDER_ENV:
+            continue  # a block name such as "discovery", not a stored answer
         if getattr(config, field):
             continue
         variable = FINDER_ENV.get(field) or SENDER_ENV.get(field)
@@ -172,15 +194,56 @@ def _ask_llm(config: SiteConfig) -> None:
         _say(f"  ✗ {refused}")
 
 
-def _ask_bettercontact(config: SiteConfig) -> None:
+def _ask_discovery(config: SiteConfig) -> None:
+    """Ask where leads come from: a dataset file, Lead Ocean, or both.
+
+    At least one source has to be complete. Nothing is checked against a network here —
+    the finder reads the file or calls Lead Ocean when a run starts, and says so by name.
+    """
     _say(
-        "\n  BetterContact — free account, 40 credits, no card.\n\n"
-        "  Finding leads costs nothing. One credit buys one verified work email, and\n"
-        "  only when you ask for addresses.\n\n"
-        "  Get a key (affiliate link — supports the project, no markup to you):\n"
-        f"  {BETTERCONTACT_SIGNUP_URL}"
+        "\n  Where leads come from. Give a dataset file (CSV or JSON Lines), a Lead Ocean\n"
+        "  key and its API base URL, or both — the dataset is read first, then Lead Ocean.\n"
+        "  BetterContact Lead Finder is a third source and is free: it needs only a BetterContact key.\n"
+        "  Leave a question blank to skip that source."
     )
-    config.bettercontact_api_key = _ask_secret("BetterContact API key")
+    while True:
+        config.dataset_path = _ask("Path to your dataset file (blank to skip)", required=False)
+        config.leadocean_api_key = (
+            _ask_secret("Lead Ocean API key") if _confirm("Use Lead Ocean too?") else "")
+        if config.leadocean_api_key:
+            config.leadocean_base_url = _ask("Lead Ocean API base URL")
+        config.bettercontact_api_key = (
+            _ask_secret("BetterContact API key") if _confirm("Use Lead Finder too?") else "")
+        if _discovery_answered(config):
+            return
+        _say("  At least one source is needed.")
+
+
+def _discovery_answered(config: SiteConfig) -> bool:
+    """Whether a lead source is complete, from the row or the environment.
+
+    One source named means that one must be complete; several (or none, the default of
+    dataset + Lead Ocean + Lead Finder) means any one complete source is enough.
+    """
+    def have(field: str) -> bool:
+        if getattr(config, field):
+            return True
+        return bool(os.environ.get(FINDER_ENV[field], "").strip())
+
+    raw = (getattr(config, "discovery_provider", "")
+           or os.environ.get(FINDER_ENV["discovery_provider"], "")).strip().lower()
+    aliases = {"leadfinder": "bettercontact", "lead_finder": "bettercontact"}
+    names = [aliases.get(part.strip(), part.strip()) for part in raw.split("+")] if raw else [
+        "dataset", "leadocean", "bettercontact"]
+    complete = {
+        "dataset": have("dataset_path"),
+        "leadocean": have("leadocean_api_key") and have("leadocean_base_url"),
+        "bettercontact": have("bettercontact_api_key"),
+    }
+    known = [name for name in names if name in complete]
+    if len(known) == 1:
+        return complete[known[0]]  # one source named: it has to be the complete one
+    return any(complete[name] for name in known)
 
 
 def _ask_operator(config: SiteConfig) -> None:
@@ -223,11 +286,22 @@ def _ask_mailbox(config: SiteConfig) -> None:
 _ASK = {
     "product_docs": _ask_campaign,
     "ai_model": _ask_llm,
-    "bettercontact_api_key": _ask_bettercontact,
+    "discovery": _ask_discovery,
     "operator_email": _ask_operator,
     "mailbox_address": _ask_mailbox,
 }
 _REQUIRED = tuple(_ASK)
+
+#: Needed only when the sender can be reached. A find-only install (the default in this
+#: fork) is never asked for a mailbox or an operator it has no use for.
+_SENDING_ONLY = ("operator_email", "mailbox_address")
+
+
+def _required() -> tuple[str, ...]:
+    """The questions this install must have answered, given whether it may send."""
+    if sending_allowed():
+        return _REQUIRED
+    return tuple(field for field in _REQUIRED if field not in _SENDING_ONLY)
 
 
 def _answered(config: SiteConfig, field: str) -> bool:
@@ -237,16 +311,22 @@ def _answered(config: SiteConfig, field: str) -> bool:
     have already given; asking for it again at a prompt would be this program failing to
     notice it was told.
     """
+    if field == "discovery":
+        return _discovery_answered(config)
     if getattr(config, field):
         return True
     variable = FINDER_ENV.get(field) or SENDER_ENV.get(field)
     return bool(variable and os.environ.get(variable, "").strip())
 
 
-def _variables_for(fields) -> list[str]:
+def _variables_for(fields, config: SiteConfig | None = None) -> list[str]:
     """The variables a headless install would set instead of answering these questions."""
     names = []
     for field in fields:
+        if field == "discovery":
+            names += [FINDER_ENV["dataset_path"], FINDER_ENV["leadocean_api_key"],
+                      FINDER_ENV["leadocean_base_url"], FINDER_ENV["bettercontact_api_key"]]
+            continue
         variable = FINDER_ENV.get(field) or SENDER_ENV.get(field)
         if variable:
             names.append(variable)
@@ -278,9 +358,15 @@ def _check_children() -> None:
     find needs and one that knows what a send needs.
     """
     from openoutfind.core import readiness as finder_readiness
-    from openoutsend import first_run as sender_first_run
 
     finder_readiness.check_ready()
+    if not sending_allowed():
+        # The sender's check connects to the mailbox (an SMTP login). A find-only install
+        # has no mailbox and must not open an outside connection on the sender's behalf.
+        return
+
+    from openoutsend import first_run as sender_first_run
+
     sender_first_run.check_ready()
 
 

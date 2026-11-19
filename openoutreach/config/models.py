@@ -31,6 +31,10 @@ FINDER_ENV = {
     "llm_api_key": "OPENOUTFIND_LLM_API_KEY",
     "llm_api_base": "OPENOUTFIND_LLM_API_BASE",
     "bettercontact_api_key": "OPENOUTFIND_BETTERCONTACT_API_KEY",
+    "discovery_provider": "OPENOUTFIND_DISCOVERY_PROVIDER",
+    "leadocean_api_key": "OPENOUTFIND_LEADOCEAN_API_KEY",
+    "leadocean_base_url": "OPENOUTFIND_LEADOCEAN_BASE_URL",
+    "dataset_path": "OPENOUTFIND_DATASET_PATH",
     "apollo_api_key": "OPENOUTFIND_APOLLO_API_KEY",
     "email_finder": "OPENOUTFIND_EMAIL_FINDER",
     "operator_email": "OPENOUTFIND_OPERATOR_EMAIL",
@@ -84,6 +88,13 @@ class SiteConfig(models.Model):
     # BetterContact's key powers discovery (free) as well as enrichment (paid); Apollo's
     # only resolves an address, so it never stands alone.
     bettercontact_api_key = models.CharField(max_length=500, blank=True, default="")
+    # Hybrowlabs fork (OPS-636): discovery reads Lead Ocean and/or a dataset file. Blank
+    # provider means the finder's own default (`leadocean+dataset`). These are as secret
+    # as the BetterContact key: environment-supplied, never committed.
+    discovery_provider = models.CharField(max_length=32, blank=True, default="")
+    leadocean_api_key = models.CharField(max_length=500, blank=True, default="")
+    leadocean_base_url = models.CharField(max_length=500, blank=True, default="")
+    dataset_path = models.CharField(max_length=1000, blank=True, default="")
     apollo_api_key = models.CharField(max_length=500, blank=True, default="")
     email_finder = models.CharField(max_length=32, blank=True, default="")
 

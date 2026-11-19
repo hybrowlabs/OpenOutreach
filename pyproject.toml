@@ -14,7 +14,7 @@ description = "Open-source AI lead finder: describe your product, get qualified 
 readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
-license-files = ["LICENCE.md"]
+license-files = ["LICENCE.md", "NOTICE"]
 authors = [{ name = "OpenOutreach", email = "hello@openoutreach.app" }]
 keywords = [
     "lead-generation",
@@ -49,7 +49,14 @@ classifiers = [
 # of one install, and of a wizard that hands each child the environment it reads.
 dependencies = [
     "Django>=5.2,<7.0",
-    "openoutfind==0.1.80",
+    # hybrowlabs fork (OPS-636): the finder with the Lead Ocean + dataset providers. Pinned to a
+    # commit of hybrowlabs/OpenOutFind (branch ops-636-lead-ocean-dataset); bump it when that
+    # repo changes, as upstream bumps its PyPI pin. Upstream behaviour is still one variable
+    # away: OPENOUTFIND_DISCOVERY_PROVIDER=bettercontact.
+    "openoutfind @ git+https://github.com/hybrowlabs/OpenOutFind@9c32a317b18704a69f11bf826b502ab3c97958f2",
+    # agentic-fsm 0.1.16+ refuses openoutsend 0.1.83's Deal state machine ("edge 0 is ..."),
+    # so an unpinned install breaks the send path. 0.1.14 is the last that accepts it.
+    "agentic-fsm==0.1.14",
     "openoutsend==0.1.83",
     # The wizard validates a country code against a real list of them. Declared rather
     # than inherited from the finder: the rule above is that this file names what *this*
@@ -73,8 +80,12 @@ Homepage = "https://openoutreach.app"
 Source = "https://github.com/eracle/OpenOutreach"
 Issues = "https://github.com/eracle/OpenOutreach/issues"
 
+[tool.hatch.metadata]
+# A direct reference to the forked finder (see `dependencies`).
+allow-direct-references = true
+
 [tool.hatch.build.targets.wheel]
 packages = ["openoutreach"]
 
 [tool.hatch.build.targets.sdist]
-include = ["openoutreach", "README.md", "LICENCE.md", "LEGAL_NOTICE.md", "pyproject.toml"]
+include = ["openoutreach", "README.md", "LICENCE.md", "NOTICE", "LEGAL_NOTICE.md", "pyproject.toml"]

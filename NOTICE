@@ -1,0 +1,30 @@
+OpenOutreach (hybrowlabs fork)
+Copyright 2026 Hybrowlabs
+
+This product is a modified version of OpenOutreach, created by eracle and the
+OpenOutreach contributors: https://github.com/eracle/OpenOutreach
+
+It is used and redistributed under the Apache License, Version 2.0. The full licence
+text is in LICENCE.md and is unchanged. The original copyright, licence and attribution
+notices of the upstream project are retained.
+
+It depends on a modified version of OpenOutFind (https://github.com/eracle/OpenOutFind,
+Apache-2.0), maintained at https://github.com/hybrowlabs/OpenOutFind, and on the
+unmodified OpenOutSend (https://github.com/eracle/OpenOutSend).
+
+Changes made by Hybrowlabs (OPS-636), as required by section 4(b) of the licence:
+
+  - Lead discovery reads Lead Ocean and/or an operator dataset instead of BetterContact
+    Lead Finder: new configuration answers and migration
+    (openoutreach/config/models.py, openoutreach/config/migrations/0004_discovery_sources.py),
+    a lead-source question in place of the BetterContact one (openoutreach/wizard.py), and
+    the dependency now points at the Hybrowlabs OpenOutFind (pyproject.toml).
+  - Sending is off unless OPENOUTREACH_ALLOW_SEND is set; `run` finds leads only unless
+    given --send as well; onboarding asks for no mailbox and opens no mailbox connection
+    while sending is off (openoutreach/__main__.py, openoutreach/wizard.py).
+  - Publishing jobs do not run outside the upstream repository (.github/workflows/deploy.yml).
+  - Tests: tests/test_wizard.py, tests/test_cli.py, tests/test_run.py.
+  - Documentation: README.md, CLAUDE.md, docs/pilot.md, NOTICE.
+
+Upstream behaviour remains available by setting OPENOUTFIND_DISCOVERY_PROVIDER=bettercontact
+(the finder side) and OPENOUTREACH_ALLOW_SEND=1 (the sending side).

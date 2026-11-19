@@ -41,7 +41,7 @@ jobs:
   # below reads them for its semver tags), but a tag on an already-published commit would
   # only collide with the version that commit already shipped.
   publish-pypi:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.repository == 'eracle/OpenOutreach'
     needs: test
     runs-on: ubuntu-latest
     # Required: the PyPI trusted publisher is registered against this workflow filename
@@ -87,6 +87,8 @@ jobs:
 
   # The server image (docs/infrastructure.md §7) — not the install path.
   build-and-push:
+    # hybrowlabs fork (OPS-636): never publish an image or notify upstream's hub from here.
+    if: github.repository == 'eracle/OpenOutreach'
     needs: test
     runs-on: ubuntu-latest
     permissions:
